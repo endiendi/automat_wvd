@@ -1,3 +1,11 @@
+"""
+### Zastrzeżenie (Disclaimer) ###
+
+Ten projekt jest przeznaczony wyłącznie do celów edukacyjnych i badawczych.
+Używaj go odpowiedzialnie i tylko w odniesieniu do treści, do których posiadasz
+legalne prawa. Autor nie ponosi odpowiedzialności za niewłaściwe wykorzystanie
+tego narzędzia.
+"""
 import os
 import sys
 import subprocess
@@ -8,7 +16,7 @@ from pathlib import Path
 VENV_NAME = ".venv"
 
 def find_python_scripts(current_script_name):
-    """Znajduje wszystkie skrypty .py w bieżącym folderze, oprócz samego siebie."""
+    """Znajduje wszystkie skrypty *.py w bieżącym folderze, oprócz samego siebie."""
     scripts = []
     for file in Path.cwd().glob('*.py'):
         if file.name != current_script_name:
