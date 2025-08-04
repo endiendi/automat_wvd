@@ -40,11 +40,15 @@ def check_and_install_keydive():
 def find_android_sdk():
     sdk_path_str = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT")
     if sdk_path_str and Path(sdk_path_str).is_dir(): return Path(sdk_path_str)
+    
     if sys.platform == "win32":
         local_app_data = os.environ.get("LOCALAPPDATA")
         if local_app_data:
             default_path = Path(local_app_data) / "Android" / "Sdk"
             if default_path.is_dir(): return default_path
+    elif sys.platform == "linux" or sys.platform == "darwin": # Linux lub macOS
+        default_path = Path.home() / "Android" / "Sdk"
+        if default_path.is_dir(): return default_path
     return None
 
 SDK_PATH = find_android_sdk()
@@ -148,7 +152,7 @@ def cleanup():
 
 def main():
     """Główna funkcja skryptu."""
-    print("---- AUTOMATYCZNY GENERATOR PLIKU WIDEVINE WVD (v7 - Finalna, Samoczyszcząca) ----")
+    print("---- AUTOMATYCZNY GENERATOR PLIKU WIDEVINE WVD (v7 - Finalna) ----")
     
     selected_device = None  # Inicjalizujemy zmienną, aby była dostępna w 'finally'
     try:

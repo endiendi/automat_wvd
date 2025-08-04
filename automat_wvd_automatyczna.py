@@ -26,14 +26,32 @@ DRM_TEST_URLS = {
 
 # --- Logika Wyszukiwania Ścieżek i Narzędzi ---
 def find_android_sdk():
+    """Wyszukuje główny katalog Android SDK na Windows i Linux."""
+    # 1. Sprawdź zmienne środowiskowe (najlepsza metoda)
     sdk_path_str = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT")
-    if sdk_path_str and Path(sdk_path_str).is_dir(): return Path(sdk_path_str)
-    if sys.platform == "win32":
+    if sdk_path_str and Path(sdk_path_str).is_dir():
+        print(f"INFO: Znaleziono Android SDK w zmiennej środowiskowej: {sdk_path_str}")
+        return Path(sdk_path_str)
+
+    # 2. Sprawdź domyślne ścieżki dla danego systemu
+    platform = sys.platform
+    default_path = None
+    if platform == "win32":
         local_app_data = os.environ.get("LOCALAPPDATA")
         if local_app_data:
             default_path = Path(local_app_data) / "Android" / "Sdk"
-            if default_path.is_dir(): return default_path
+    elif platform.startswith("linux"):
+        home_dir = os.environ.get("HOME")
+        if home_dir:
+            default_path = Path(home_dir) / "Android" / "Sdk"
+
+    if default_path and default_path.is_dir():
+        print(f"INFO: Znaleziono Android SDK w domyślnej lokalizacji: {default_path}")
+        return default_path
+    
+    # 3. Jeśli wszystko zawiedzie
     print("ERROR: Nie udało się automatycznie zlokalizować Android SDK.")
+    print("WSKAZÓWKA: Ustaw zmienną środowiskową ANDROID_HOME wskazującą na folder SDK.")
     return None
 
 SDK_PATH = find_android_sdk()
@@ -155,7 +173,8 @@ def cleanup():
         print("ERROR: Nie udało się usunąć folderu 'device'.")
 
 def main():
-    print("--- AUTOMATYCZNY GENERATOR PLIKU WIDEVINE WVD (v12.1 - Golden Master) ---")
+    """Główna funkcja skryptu."""
+    print("--- AUTOMATYCZNY GENERATOR PLIKU WIDEVINE WVD (v12.2 - Finalna) ---")
     
     selected_device, emulator_process, url_to_open = None, None, None
     try:
@@ -209,6 +228,8 @@ def main():
     except Exception as e:
         print(f"\n\nCRITICAL: Wystąpił błąd: {e}")
     finally:
+        # --- ULEPSZONY BLOK SPRZĄTAJĄCY ---
+        print("\n--- Krok Ostateczny: Sprzątanie i Zamykanie ---")
         cleanup()
         if selected_device:
             subprocess.run([str(ADB_PATH), "-s", selected_device, "shell", "killall frida-server"], capture_output=True, timeout=5)
@@ -217,8 +238,13 @@ def main():
             print("INFO: Zamykanie emulatora...")
             if selected_device:
                 subprocess.run([str(ADB_PATH), "-s", selected_device, "emu", "kill"], capture_output=True, timeout=10)
-            emulator_process.wait(timeout=30)
-            print("SUCCESS: Emulator zamknięty.")
+            
+            # POPRAWKA: Dłuższy timeout i obsługa wyjątku
+            try:
+                emulator_process.wait(timeout=60) # Czekamy do 60 sekund
+                print("SUCCESS: Emulator został zamknięty.")
+            except subprocess.TimeoutExpired:
+                print("WARNING: Emulator nie zamknął się w wyznaczonym czasie. Być może trzeba go zamknąć ręcznie.")
         print("--- Koniec pracy. ---")
 
 if __name__ == "__main__":
