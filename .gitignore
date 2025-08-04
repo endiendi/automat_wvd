@@ -1,0 +1,8 @@
+frida-server.bat
+*.log
+*.temp
+katalog_kopie/
+build/
+/*
+!/.gitignore
+!/README.md
