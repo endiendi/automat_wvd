@@ -106,8 +106,9 @@ def prepare_device_environment(device_serial):
     return True
 
 def dump_widevine_keys(device_serial=None):
-    print("\n--- Krok 3: Uruchamianie 'keydive' w celu pobrania kluczy ---")
-    print("WSKAZÓWKA: Gdy skrypt 'zawiśnie', uruchom na emulatorze aplikację DRM Info lub odtwórz wideo na stronie https://shaka-player-demo.appspot.com/")
+    print("\n--- Krok 3: Uruchamianie 'keydive' w celu pobrania kluczy ---\n")
+    print("---                    WSKAZÓWKA:                         ---")
+    print("Gdy skrypt 'zawiśnie', na emulatorze odtwórz wideo na stronie: \nhttps://shaka-player-demo.appspot.com lub https://bitmovin.com/demos/drmn\n")
     try:
         command = ["keydive"]
         if device_serial: command.extend(["-s", device_serial])
