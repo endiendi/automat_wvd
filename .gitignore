@@ -1,4 +1,10 @@
 frida-server.bat
+automat_wvd.py
+automat_wvd1.py
+automat_wvd2.py
+automat_wvd4.py
+com.androidfung.drminfo_1.1.14-240613-452_minAPI28(nodpi)_apkmirror.com.apk
+frida-server
 *.log
 *.temp
 katalog_kopie/
