@@ -7,3 +7,4 @@ build/
 !/README.md
 !/automat_wvd_automatyczna.py
 !/automat_wvd_reczna.py
+!/automat_wvd_reczna_pywidevine.py
