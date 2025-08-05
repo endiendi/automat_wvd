@@ -19,19 +19,22 @@ FRIDA_SERVER_FILENAME = "frida-server"
 
 # ... (wszystkie funkcje pomocnicze od check_and_install_keydive do cleanup pozostają BEZ ZMIAN) ...
 def check_and_install_keydive():
+    """Sprawdza i instaluje keydive oraz jego ukrytą zależność 'construct'."""
     try:
         import keydive
-        print("INFO: Biblioteka 'keydive' jest już zainstalowana.")
+        import construct
+        print("INFO: Biblioteki 'keydive' i 'construct' są już zainstalowane.")
     except ImportError:
-        print("WARNING: Biblioteka 'keydive' nie jest zainstalowana.")
-        answer = input("Czy chcesz ją teraz zainstalować? [Y/n]: ").lower().strip()
+        print("WARNING: Brakuje wymaganych bibliotek ('keydive' lub 'construct').")
+        answer = input("Czy chcesz je teraz zainstalować/zaktualizować? [Y/n]: ").lower().strip()
         if answer in ["", "y", "yes"]:
-            print("INFO: Instalowanie 'keydive'...")
+            print("INFO: Instalowanie 'keydive' i 'construct'...")
             try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "keydive"])
-                print("SUCCESS: Pomyślnie zainstalowano 'keydive'.")
+                # Instalujemy oba pakiety za jednym razem
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "keydive", "construct"])
+                print("SUCCESS: Pomyślnie zainstalowano wymagane biblioteki.")
             except subprocess.CalledProcessError as e:
-                print(f"ERROR: Nie udało się zainstalować 'keydive'. Błąd: {e}")
+                print(f"ERROR: Nie udało się zainstalować bibliotek. Błąd: {e}")
                 sys.exit(1)
         else:
             print("INFO: Instalacja anulowana. Skrypt nie może kontynuować.")
@@ -114,7 +117,7 @@ def dump_widevine_keys(device_serial=None):
     print("---                    WSKAZÓWKA:                         ---")
     print("Gdy skrypt 'zawiśnie', na emulatorze odtwórz wideo na stronie: \nhttps://shaka-player-demo.appspot.com lub https://bitmovin.com/demos/drmn\n")
     try:
-        command = ["keydive"]
+        command = [sys.executable, "-m", "keydive"]
         if device_serial: command.extend(["-s", device_serial])
         env = os.environ.copy()
         platform_tools_path = str(ADB_PATH.parent)
@@ -152,7 +155,7 @@ def cleanup():
 
 def main():
     """Główna funkcja skryptu."""
-    print("---- AUTOMATYCZNY GENERATOR PLIKU WIDEVINE WVD (v7 - Finalna) ----")
+    print("---- AUTOMATYCZNY GENERATOR PLIKU WIDEVINE WVD (v7 - Finalna, Samoczyszcząca) ----")
     
     selected_device = None  # Inicjalizujemy zmienną, aby była dostępna w 'finally'
     try:
