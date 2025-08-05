@@ -65,14 +65,26 @@ if SDK_PATH:
 
 # --- Funkcje Pomocnicze ---
 def check_and_install_keydive():
+    """Sprawdza i instaluje keydive oraz jego ukrytą zależność 'construct'."""
     try:
         import keydive
+        # Dodatkowe sprawdzenie dla 'construct', które jest ukrytą zależnością
+        import construct
+        print("INFO: Biblioteka 'keydive' i jej zależności są już zainstalowane.")
     except ImportError:
-        print("WARNING: Biblioteka 'keydive' nie jest zainstalowana.")
-        answer = input("Czy chcesz ją teraz zainstalować? [Y/n]: ").lower().strip()
+        print("WARNING: Brakuje wymaganych bibliotek ('keydive' i/lub 'construct').")
+        answer = input("Czy chcesz je teraz zainstalować? [Y/n]: ").lower().strip()
         if answer in ["", "y", "yes"]:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "keydive"])
+            print("INFO: Instalowanie 'keydive' oraz jego zależności 'construct'...")
+            try:
+                # Instalujemy oba pakiety, aby mieć pewność
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "keydive", "construct"])
+                print("SUCCESS: Pomyślnie zainstalowano biblioteki.")
+            except subprocess.CalledProcessError as e:
+                print(f"ERROR: Nie udało się zainstalować bibliotek. Błąd: {e}")
+                sys.exit(1)
         else:
+            print("INFO: Instalacja anulowana. Skrypt nie może kontynuować.")
             sys.exit(1)
 
 def select_adb_device():
@@ -214,7 +226,7 @@ def main():
             print("2. Obserwuj to okno - 'keydive' powinien przechwycić klucze.")
             print("3. Gdy 'keydive' zakończy pracę i zapisze pliki, skrypt automatycznie przejdzie dalej.")
             
-            command = ["keydive"]
+            command = [sys.executable, "-m", "keydive"]
             if selected_device: command.extend(["-s", selected_device])
             env = os.environ.copy()
             env["PATH"] = str(ADB_PATH.parent) + os.pathsep + env.get("PATH", "")
