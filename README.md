@@ -1,10 +1,12 @@
-# Automatyczny Ekstraktor Kluczy Widevine L3 (Wersja Dwuetapowa)
+# Automatyczny Ekstraktor Kluczy Widevine L3 (Wersja Dwuetapowa) / Automatic Widevine L3 Key Extractor (Two-Stage Version)
+
+## Wersja Polska (PL)
 
 Ten projekt zawiera skrypt w języku Python, który w sposób zautomatyzowany i powtarzalny przeprowadza proces ekstrakcji kluczy Widevine Content Decryption Module (CDM) z **urządzeń z systemem Android posiadających uprawnienia roota**.
 
 Skrypt działa w dwóch fazach, tworząc dedykowane, izolowane środowiska wirtualne dla każdego etapu, co zapewnia kompatybilność i stabilność działania, nawet z nowszymi wersjami Pythona. Wynikiem działania jest plik `device.wvd`, który może być używany przez narzędzia takie jak `yt-dlp` do pobierania treści chronionych przez DRM L3.
 
-## Testowane Środowisko
+### Testowane Środowisko
 
 Skrypt został pomyślnie przetestowany w następującej konfiguracji:
 
@@ -15,12 +17,12 @@ Skrypt został pomyślnie przetestowany w następującej konfiguracji:
     *   **API**: 35 ("VanillaIceCream", Android 15.0)
     *   **Obraz Systemu**: Google APIs Intel x86_64 Atom System Image (Ważne jest użycie obrazu "Google APIs", a nie "Google Play", aby mieć dostęp do roota).
 
-## Pliki w projekcie
+### Pliki w projekcie
 
 *   `automat_wvd_reczna_pywidevine.py` - Główny skrypt, który należy uruchomić.
 *   `frida-server` - **(Musisz dostarczyć ten plik samodzielnie)**. Jest to plik binarny serwera Frida, który musi być dopasowany do architektury procesora Twojego urządzenia Android.
 
-## Wymagania wstępne
+### Wymagania wstępne
 
 Zanim zaczniesz, upewnij się, że spełniasz następujące wymagania:
 
@@ -30,7 +32,7 @@ Zanim zaczniesz, upewnij się, że spełniasz następujące wymagania:
 4.  Zainstalowane **Android SDK Platform-Tools**. Skrypt spróbuje automatycznie zlokalizować `adb`, ale najlepiej dodać folder z narzędziami do systemowej zmiennej środowiskowej `PATH`.
 5.  Pobrany plik binarny **`frida-server`**.
 
-## Instrukcja Przygotowania
+### Instrukcja Przygotowania
 
 1.  **Pobierz `frida-server`**:
     *   Przejdź na stronę oficjalnych wydań Fridy na GitHubie: https://github.com/frida/frida/releases.
@@ -44,7 +46,7 @@ Zanim zaczniesz, upewnij się, że spełniasz następujące wymagania:
 2.  **Przygotuj folder projektu**:
     *   Umieść plik skryptu `automat_wvd_reczna_pywidevine.py` oraz pobrany i przemianowany `frida-server` w tym samym folderze.
 
-## Instrukcja Użycia
+### Instrukcja Użycia
 
 1.  **Uruchom emulator Androida**. Upewnij się, że jest w pełni załadowany i gotowy do pracy.
 
@@ -55,20 +57,6 @@ Zanim zaczniesz, upewnij się, że spełniasz następujące wymagania:
         python automat_wvd_reczna_pywidevine.py
         ```
 
-3.  **Postępuj zgodnie z instrukcjami na ekranie**:
-    *   **Faza 1: Pobieranie Kluczy**
-        *   Skrypt najpierw utworzy środowisko wirtualne `venv_extractor` i zainstaluje w nim bibliotekę `keydive`.
-        *   Następnie wyświetli listę podłączonych urządzeń i poprosi Cię o wybór jednego (jeśli jest ich więcej niż jedno).
-        *   Skrypt automatycznie przygotuje urządzenie (prześle i uruchomi serwer Fridy).
-        *   **!!! TERAZ TWOJA KOLEJ !!!**
-            *   Skrypt wyświetli komunikat `--- WSKAZÓWKA: Odtwórz wideo na https://shaka-player-demo.appspot.com ---`.
-            *   **To jest moment na Twoje działanie**: na emulatorze **ręcznie** otwórz przeglądarkę Chrome, wejdź na jeden z podanych adresów (np. `https://shaka-player-demo.appspot.com` lub `https://bitmovin.com/demos/drm`) i **odtwórz wideo**.
-            *   W tym czasie w terminalu powinny pojawić się logi z `keydive` świadczące o przechwytywaniu kluczy.
-
-    *   **Faza 2: Tworzenie pliku .wvd**
-        *   Po pomyślnym pobraniu kluczy, skrypt automatycznie przejdzie do drugiej fazy.
-        *   Utworzy nowe środowisko wirtualne `venv_creator` i zainstaluje w nim `pywidevine`.
-        *   Użyje pobranych kluczy do wygenerowania finalnego pliku.
 
 4.  **Zakończenie**:
     *   Po pomyślnym zakończeniu, w folderze projektu znajdziesz plik **`device.wvd`**.
