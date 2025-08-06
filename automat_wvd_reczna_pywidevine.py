@@ -37,23 +37,35 @@ import subprocess
 import sys
 import shutil
 import time
+import logging
 from pathlib import Path
+import json
+import urllib.request
+import lzma
 
 # --- Global Language Configuration ---
 LANG = "pl"  # Domyślny język, zostanie zmieniony przez select_language()
 
+# --- Global Logging Configuration ---
+LOG_FILENAME = "diagnostic_log.txt"
+logger = logging.getLogger(__name__)
+g_script_successful = False
+g_user_interrupted = False
+
+
+# --- Multilingual Messages ---
 MESSAGES = {
     "lang_prompt": {
-        "pl": "Wybierz wersję językową (Choose language version):\n 1. Polski (default)\n 2. English\nWybór [1]: ",
-        "en": "Wybierz wersję językową (Choose language version):\n 1. Polski (default)\n 2. English\nChoice [1]: "
+        "pl": "\nWybierz wersję językową (Choose language version):\n 1. Polski (default)\n 2. English\nWybór [1]: ",
+        "en": "\nChoose language version:\n 1. Polski (default)\n 2. English\nChoice [1]: "
     },
     "main_title": {
-        "pl": "---- AUTOMATYCZNY GENERATOR PLIKU WIDEVINE ----",
-        "en": "---- AUTOMATIC WIDEVINE FILE GENERATOR ----"
+        "pl": "\n---- AUTOMATYCZNY GENERATOR PLIKU WIDEVINE ----",
+        "en": "\n---- AUTOMATIC WIDEVINE FILE GENERATOR ----"
     },
     "adb_not_found": {
-        "pl": "\nERROR: Nie udało się zlokalizować 'adb'.",
-        "en": "\nERROR: Could not locate 'adb'."
+        "pl": "\nCRITICAL: Nie udało się zlokalizować 'adb'. Upewnij się, że Android SDK jest zainstalowany i zmienna środowiskowa ANDROID_HOME jest ustawiona poprawnie.",
+        "en": "\nCRITICAL: Could not locate 'adb'. Make sure the Android SDK is installed and the ANDROID_HOME environment variable is set correctly."
     },
     "phase1_header": {
         "pl": "\n" + "="*60 + "\n=== FAZA 1: POBIERANIE KLUCZY Z URZĄDZENIA ===\n" + "="*60,
@@ -76,8 +88,8 @@ MESSAGES = {
         "en": "ERROR: No connected ADB devices found."
     },
     "single_adb_device_found": {
-        "pl": "SUCCESS: Znaleziono jedno urządzenie ADB: {serial}. Zostanie ono użyte automatycznie.",
-        "en": "SUCCESS: Found one ADB device: {serial}. It will be used automatically."
+        "pl": "SUCCESS: Znaleziono jedno urządzenie: {avd_name} ({serial}). Zostanie ono użyte automatycznie.",
+        "en": "SUCCESS: Found one device: {avd_name} ({serial}). It will be used automatically."
     },
     "multiple_adb_devices_found": {
         "pl": "INFO: Znaleziono więcej niż jedno urządzenie...",
@@ -86,6 +98,10 @@ MESSAGES = {
     "select_device_prompt": {
         "pl": "Wybierz numer (1-{count}): ",
         "en": "Select number (1-{count}): "
+    },
+    "device_display_format": {
+        "pl": "  {index}. {avd_name} ({serial})",
+        "en": "  {index}. {avd_name} ({serial})"
     },
     "invalid_number": {
         "pl": "Nieprawidłowy numer.",
@@ -204,8 +220,8 @@ MESSAGES = {
         "en": "\nProcess aborted due to an error in Phase 2."
     },
     "user_interrupt": {
-        "pl": "\n\nINFO: Działanie skryptu przerwane przez użytkownika (Ctrl+C).",
-        "en": "\n\nINFO: Script execution interrupted by user (Ctrl+C)."
+        "pl": "\n\nPrzerwano przez użytkownika.",
+        "en": "\n\nInterrupted by user."
     },
     "critical_error": {
         "pl": "\n\nCRITICAL: Wystąpił nieoczekiwany globalny błąd: {e}",
@@ -218,8 +234,119 @@ MESSAGES = {
     "command_not_found": {
         "pl": "ERROR: Nie znaleziono polecenia: {cmd}",
         "en": "ERROR: Command not found: {cmd}"
+    },
+    "venv_creation_notice": {
+        "pl": "INFO: Tworzenie środowisk wirtualnych i instalacja bibliotek może potrwać kilka minut. Prosimy o cierpliwość.",
+        "en": "INFO: Creating virtual environments and installing libraries may take a few minutes. Please be patient."
+    },
+    "press_enter_to_exit": {
+        "pl": "\nNaciśnij Enter, aby zakończyć działanie skryptu...",
+        "en": "\nPress Enter to exit the script..."
+    },
+    "cleanup_warning": {
+        "pl": "\nWARNING: Znaleziono pozostałości z poprzedniego uruchomienia:",
+        "en": "\nWARNING: Found leftovers from a previous run:"
+    },
+    "cleanup_prompt": {
+        "pl": "Czy chcesz je teraz usunąć, aby kontynuować? [T/n]: ",
+        "en": "Do you want to remove them now to continue? [Y/n]: "
+    },
+    "cleanup_in_progress": {
+        "pl": "--- Usuwanie {path}...",
+        "en": "--- Removing {path}..."
+    },
+    "cleanup_success": {
+        "pl": "SUCCESS: Pomyślnie posprzątano.",
+        "en": "SUCCESS: Cleanup successful."
+    },
+    "cleanup_aborted": {
+        "pl": "INFO: Sprzątanie anulowane. Skrypt nie może kontynuować.",
+        "en": "INFO: Cleanup aborted. The script cannot continue."
+    },
+    "frida_server_missing_error": {
+        "pl": """
+CRITICAL: Nie można kontynuować bez pliku '{filename}'.
+Uruchom skrypt ponownie i zgódź się na automatyczne pobranie.""",
+        "en": """
+CRITICAL: Cannot continue without the '{filename}' file.
+Please restart the script and agree to the automatic download."""
+    },
+    # START: Dodane brakujące komunikaty
+    "checking_architecture": {
+        "pl": "\n--- Sprawdzanie architektury urządzenia... ---",
+        "en": "\n--- Checking device architecture... ---"
+    },
+    "architecture_found": {
+        "pl": "SUCCESS: Wykryta architektura urządzenia: {arch}",
+        "en": "SUCCESS: Detected device architecture: {arch}"
+    },
+    "architecture_fail": {
+        "pl": "ERROR: Nie udało się ustalić architektury urządzenia. Nie można automatycznie pobrać serwera Frida.",
+        "en": "ERROR: Could not determine device architecture. Cannot automatically download Frida server."
+    },
+    "frida_exists_prompt": {
+        "pl": "INFO: Plik 'frida-server' już istnieje. Chcesz go użyć, czy pobrać najnowszą wersję?\n(U)żyj istniejącego, (P)obierz najnowszą: [U/p] ",
+        "en": "INFO: The 'frida-server' file already exists. Do you want to use it or download the latest version?\n(U)se existing, (D)ownload latest: [U/d] "
+    },
+    "frida_download_prompt": {
+        "pl": "INFO: Plik 'frida-server' jest wymagany. Czy chcesz go teraz automatycznie pobrać? [T/n]: ",
+        "en": "INFO: The 'frida-server' file is required. Do you want to download it automatically now? [Y/n]: "
+    },
+    "frida_api_fail": {
+        "pl": "ERROR: Nie udało się połączyć z API GitHub w celu znalezienia najnowszej wersji Frida.",
+        "en": "ERROR: Failed to connect to the GitHub API to find the latest Frida release."
+    },
+    "frida_asset_not_found": {
+        "pl": "ERROR: Nie znaleziono odpowiedniego pliku serwera Frida dla architektury '{arch}' w najnowszym wydaniu.",
+        "en": "ERROR: Could not find a suitable Frida server asset for architecture '{arch}' in the latest release."
+    },
+    "frida_downloading": {
+        "pl": "--- Pobieranie serwera Frida dla architektury {arch}... ---",
+        "en": "--- Downloading Frida server for {arch} architecture... ---"
+    },
+    "frida_download_fail": {
+        "pl": "ERROR: Pobieranie pliku serwera Frida nie powiodło się.",
+        "en": "ERROR: Failed to download the Frida server file."
+    },
+    "frida_unpacking": {
+        "pl": "--- Rozpakowywanie archiwum serwera Frida... ---",
+        "en": "--- Unpacking the Frida server archive... ---"
+    },
+    "frida_unpack_fail": {
+        "pl": "ERROR: Rozpakowywanie pliku serwera Frida nie powiodło się.",
+        "en": "ERROR: Failed to unpack the Frida server file."
+    },
+    "frida_success": {
+        "pl": "SUCCESS: Serwer Frida został pomyślnie pobrany i przygotowany jako '{filename}'.",
+        "en": "SUCCESS: Frida server was successfully downloaded and prepared as '{filename}'."
+    },
+    # END: Dodane brakujące komunikaty
+    "log_file_kept": {
+        "pl": "\nINFO: Proces zakończył się błędem. Plik diagnostyczny został zapisany jako '{log_filename}' w celu analizy.",
+        "en": "\nINFO: The process failed. A diagnostic log file has been saved as '{log_filename}' for analysis."
+    },
+    "log_file_removing": {
+        "pl": "--- Usuwanie pliku diagnostycznego '{log_filename}'... ---",
+        "en": "--- Removing diagnostic log file '{log_filename}'... ---"
+    },
+    "log_file_removed": {
+        "pl": "SUCCESS: Usunięto plik diagnostyczny.",
+        "en": "SUCCESS: Diagnostic log file removed."
+    },
+    "frida_using_existing": {
+        "pl": "INFO: Używam istniejącego pliku 'frida-server' zgodnie z poleceniem.",
+        "en": "INFO: Using existing 'frida-server' file as requested."
+    },
+    "invalid_lang_choice": {
+        "pl": "Nieprawidłowy wybór. Wprowadź 1 lub 2.",
+        "en": "Invalid choice. Please enter 1 or 2."
+    },
+    "log_file_remove_warning": {
+        "pl": "WARNING: Nie można usunąć pliku logu '{log_filename}'. Błąd: {e}",
+        "en": "WARNING: Could not remove log file '{log_filename}'. Error: {e}"
     }
 }
+
 
 def _(key):
     """Pobiera przetłumaczony tekst na podstawie globalnego języka."""
@@ -256,98 +383,151 @@ def get_venv_path(venv_path: Path, executable: str):
     if sys.platform == "win32": return venv_path / "Scripts" / f"{executable}.exe"
     else: return venv_path / "bin" / executable
 
-def run_command(command, check=True):
+def setup_logging():
+    """Konfiguruje logowanie do pliku i konsoli."""
+    if Path(LOG_FILENAME).exists():
+        Path(LOG_FILENAME).unlink()
+    logger.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    file_handler = logging.FileHandler(LOG_FILENAME, encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(logging.Formatter('%(message)s'))
+    logger.addHandler(console_handler)
+
+def run_command(command, check=True, env=None):
     try:
-        result = subprocess.run(command, check=check, capture_output=True, text=True, encoding='utf-8', errors='replace')
+        logger.debug(f"Running command: {' '.join(map(str, command))}")
+        result = subprocess.run(command, check=check, capture_output=True, text=True, encoding='utf-8', errors='replace', env=env)
+        if result.stdout: logger.debug(f"STDOUT:\n{result.stdout.strip()}")
+        if result.stderr: logger.debug(f"STDERR:\n{result.stderr.strip()}")
         return result
     except subprocess.CalledProcessError as e:
-        print(_("command_error").format(cmd=' '.join(map(str, e.cmd)), code=e.returncode), file=sys.stderr)
-        if e.stdout: print(f"STDOUT:\n{e.stdout}", file=sys.stderr)
-        if e.stderr: print(f"STDERR:\n{e.stderr}", file=sys.stderr)
+        logger.error(_("command_error").format(cmd=' '.join(map(str, e.cmd)), code=e.returncode))
+        if e.stdout: logger.error(f"STDOUT:\n{e.stdout.strip()}")
+        if e.stderr: logger.error(f"STDERR:\n{e.stderr.strip()}")
         return None
     except FileNotFoundError:
-        print(_("command_not_found").format(cmd=command[0]), file=sys.stderr)
+        logger.error(_("command_not_found").format(cmd=command[0]))
         return None
 
-# --- Faza 1: Ekstrakcja kluczy z urządzenia ---
-def run_extraction_phase():
-    print(_("phase1_header"))
-    print(_("creating_venv").format(path=VENV_EXTRACTOR_PATH))
-    if not run_command([sys.executable, "-m", "venv", str(VENV_EXTRACTOR_PATH)]): return None, False, None, None
-    pip_exe = get_venv_path(VENV_EXTRACTOR_PATH, "pip")
-    print(_("installing_lib").format(library='keydive'))
-    result = run_command([str(pip_exe), "install", "--no-cache-dir", "keydive"])
-    if not result: return None, False, None, None
-    print(result.stdout)
-    print(_("select_adb_device"))
+# START: Refaktoryzacja - funkcja do wyboru urządzenia
+def select_device():
+    """Wyszukuje podłączone urządzenia ADB i pozwala użytkownikowi wybrać jedno."""
+    logger.info(_("select_adb_device"))
     try:
         result = subprocess.run([str(ADB_PATH), "devices"], capture_output=True, text=True, check=True, encoding='utf-8')
         lines = result.stdout.strip().splitlines()
-        devices = [line.split()[0] for line in lines[1:] if line.strip() and "device" in line]
-        if not devices:
-            print(_("no_adb_device_found")); return None, False, None, None
-        if len(devices) == 1:
-            device_serial = devices[0]; print(_("single_adb_device_found").format(serial=device_serial))
+        serials = [line.split()[0] for line in lines[1:] if line.strip() and "device" in line]
+        if not serials:
+            logger.error(_("no_adb_device_found"))
+            return None
+
+        device_details = []
+        for serial in serials:
+            try:
+                avd_name_proc = subprocess.run([str(ADB_PATH), "-s", serial, "emu", "avd", "name"], capture_output=True, text=True, check=True, timeout=5, encoding='utf-8')
+                avd_name = avd_name_proc.stdout.strip().splitlines()[0]
+                device_details.append((serial, avd_name))
+            except Exception:
+                device_details.append((serial, serial))
+
+        if len(device_details) == 1:
+            device_serial, avd_name = device_details[0]
+            logger.info(_("single_adb_device_found").format(avd_name=avd_name, serial=device_serial))
+            return device_serial
         else:
-            print(_("multiple_adb_devices_found")); [print(f"  {i}. {device}") for i, device in enumerate(devices, 1)]
+            logger.info(_("multiple_adb_devices_found"))
+            for i, (serial, avd_name) in enumerate(device_details, 1):
+                logger.info(_("device_display_format").format(index=i, avd_name=avd_name, serial=serial))
+            
             while True:
                 try:
-                    choice_index = int(input(_("select_device_prompt").format(count=len(devices)))) - 1
-                    if 0 <= choice_index < len(devices):
-                        device_serial = devices[choice_index]; break
-                    else: print(_("invalid_number"))
-                except ValueError: print(_("invalid_input"))
+                    choice_index = int(input(_("select_device_prompt").format(count=len(device_details)))) - 1
+                    if 0 <= choice_index < len(device_details):
+                        return device_details[choice_index][0]
+                    else:
+                        logger.warning(_("invalid_number"))
+                except ValueError:
+                    logger.warning(_("invalid_input"))
     except Exception as e:
-        print(_("adb_comm_error").format(e=e)); return None, False, None, None
-    print(_("preparing_device_env").format(serial=device_serial))
-    subprocess.run([str(ADB_PATH), "-s", device_serial, "root"], capture_output=True, text=True, timeout=10)
+        logger.error(_("adb_comm_error").format(e=e))
+        return None
+# END: Refaktoryzacja
+
+# --- Faza 1: Ekstrakcja kluczy z urządzenia ---
+def run_extraction_phase(device_serial: str):
+    logger.info(_("phase1_header"))
+    logger.info(_("venv_creation_notice"))
+    logger.info(_("creating_venv").format(path=VENV_EXTRACTOR_PATH))
+    if not run_command([sys.executable, "-m", "venv", "--upgrade-deps", str(VENV_EXTRACTOR_PATH)]): return False, None, None
+    
+    python_in_venv = get_venv_path(VENV_EXTRACTOR_PATH, "python")
+    
+    logger.info(_("installing_lib").format(library='keydive'))
+    install_result = run_command([str(python_in_venv), "-m", "pip", "install", "--no-cache-dir", "keydive"])
+    if not install_result: return False, None, None
+
+    logger.info(_("preparing_device_env").format(serial=device_serial))
+    run_command([str(ADB_PATH), "-s", device_serial, "root"], check=False)
     time.sleep(3)
     if not Path(FRIDA_SERVER_FILENAME).is_file():
-        print(_("frida_server_not_found").format(filename=FRIDA_SERVER_FILENAME)); return device_serial, False, None, None
-    subprocess.run([str(ADB_PATH), "-s", device_serial, "push", FRIDA_SERVER_FILENAME, "/data/local/tmp/frida-server"], check=True)
-    subprocess.run([str(ADB_PATH), "-s", device_serial, "shell", "killall frida-server"], capture_output=True)
+        logger.error(_("frida_server_not_found").format(filename=FRIDA_SERVER_FILENAME))
+        return False, None, None
+    if not run_command([str(ADB_PATH), "-s", device_serial, "push", FRIDA_SERVER_FILENAME, "/data/local/tmp/frida-server"]):
+        return False, None, None
+    run_command([str(ADB_PATH), "-s", device_serial, "shell", "killall frida-server"], check=False)
     time.sleep(1)
-    subprocess.run([str(ADB_PATH), "-s", device_serial, "shell", "chmod 755 /data/local/tmp/frida-server"], check=True)
+    if not run_command([str(ADB_PATH), "-s", device_serial, "shell", "chmod 755 /data/local/tmp/frida-server"]):
+        return False, None, None
     subprocess.Popen([str(ADB_PATH), "-s", device_serial, "shell", "/data/local/tmp/frida-server &"])
     time.sleep(2)
-    print(_("device_env_success"))
-    print(_("running_keydive"))
+    logger.info(_("device_env_success"))
+    logger.info(_("running_keydive"))
     env = os.environ.copy(); env["PATH"] = str(ADB_PATH.parent) + os.pathsep + env.get("PATH", "")
     keydive_command = [str(get_venv_path(VENV_EXTRACTOR_PATH, "keydive")), "-s", device_serial]
+    
     try:
-        subprocess.run(keydive_command, env=env, check=True)
-    except (subprocess.CalledProcessError, KeyboardInterrupt):
-        print(_("keydive_error"), file=sys.stderr); return device_serial, False, None, None
-    print(_("verifying_files"))
+        if not run_command(keydive_command, env=env):
+            return False, None, None
+    except KeyboardInterrupt:
+        raise
+
+    logger.info(_("verifying_files"))
     if not KEYS_FOLDER.is_dir():
-        print(_("keys_folder_not_created").format(folder=KEYS_FOLDER), file=sys.stderr); return device_serial, False, None, None
+        logger.error(_("keys_folder_not_created").format(folder=KEYS_FOLDER)); return False, None, None
     client_id_files, private_key_files = list(KEYS_FOLDER.rglob('client_id.bin')), list(KEYS_FOLDER.rglob('private_key.pem'))
     if client_id_files and private_key_files:
         client_id_path, private_key_path = client_id_files[0], private_key_files[0]
-        print(_("client_id_found").format(path=client_id_path)); print(_("private_key_found").format(path=private_key_path))
-        return device_serial, True, client_id_path, private_key_path
+        logger.info(_("client_id_found").format(path=client_id_path)); logger.info(_("private_key_found").format(path=private_key_path))
+        return True, client_id_path, private_key_path
     else:
-        print(_("key_files_not_found").format(folder=KEYS_FOLDER), file=sys.stderr); return device_serial, False, None, None
+        logger.error(_("key_files_not_found").format(folder=KEYS_FOLDER)); return False, None, None
 
 # --- Faza 2: Tworzenie pliku .wvd ---
 def run_creation_phase(client_id_path: Path, priv_key_path: Path):
-    print(_("phase2_header"))
-    print(_("creating_venv").format(path=VENV_CREATOR_PATH))
-    if not run_command([sys.executable, "-m", "venv", str(VENV_CREATOR_PATH)]): return False
+    logger.info(_("phase2_header"))
+    logger.info(_("creating_venv").format(path=VENV_CREATOR_PATH))
+    if not run_command([sys.executable, "-m", "venv", "--upgrade-deps", str(VENV_CREATOR_PATH)]): return False
     
-    pip_exe = get_venv_path(VENV_CREATOR_PATH, "pip")
-    print(_("installing_lib").format(library='pywidevine'))
-    install_command = [str(pip_exe), "install", "--no-cache-dir", "pywidevine"]
+    python_in_venv = get_venv_path(VENV_CREATOR_PATH, "python")
+    logger.info(_("installing_lib").format(library='pywidevine'))
+    # Usunięcie przypięcia wersji, aby zainstalować najnowszą wersję z narzędziem CLI
+    install_command = [str(python_in_venv), "-m", "pip", "install", "--no-cache-dir", "pywidevine"]
     result = run_command(install_command)
     if not result:
-        print(_("pywidevine_install_fail"), file=sys.stderr); return False
-    print(result.stdout)
-    print(_("creator_env_success"))
+        logger.error(_("pywidevine_install_fail")); return False
     
-    print(_("creating_wvd_file").format(filename=FINAL_WVD_FILENAME.name))
+    logger.info(_("creator_env_success"))
     
+    logger.info(_("creating_wvd_file").format(filename=FINAL_WVD_FILENAME.name))
+    
+    # Użycie metody z narzędziem wiersza poleceń, tak jak w działającym skrypcie
     temp_output_folder = VENV_CREATOR_PATH / "temp_wvd_out"
-    temp_output_folder.mkdir()
+    temp_output_folder.mkdir(exist_ok=True)
 
     pywidevine_exe = get_venv_path(VENV_CREATOR_PATH, "pywidevine")
     command = [
@@ -357,39 +537,59 @@ def run_creation_phase(client_id_path: Path, priv_key_path: Path):
     ]
 
     result = run_command(command)
+
     if result and result.returncode == 0:
         wvd_files = list(temp_output_folder.glob('*.wvd'))
         if wvd_files:
             source_file = wvd_files[0]
-            shutil.move(source_file, FINAL_WVD_FILENAME)
-            print(_("wvd_file_created_success").format(filename=FINAL_WVD_FILENAME))
+            shutil.move(str(source_file), FINAL_WVD_FILENAME)
+            logger.info(_("wvd_file_created_success").format(filename=FINAL_WVD_FILENAME.name))
             return True
         else:
-            print(_("wvd_file_not_found_after_run"), file=sys.stderr); return False
+            logger.error(_("wvd_file_not_found_after_run")); return False
     else:
-        print(_("phase2_failed"), file=sys.stderr); return False
+        logger.error(_("phase2_failed")); return False
 
 # --- Główna funkcja i sprzątanie ---
 def cleanup(device_serial=None):
-    print(_("cleanup_header"))
+    logger.info(_("cleanup_header"))
     if device_serial and ADB_PATH:
-        print(_("stopping_frida").format(serial=device_serial))
-        subprocess.run([str(ADB_PATH), "-s", device_serial, "shell", "killall frida-server"], capture_output=True, timeout=5)
-        print(_("frida_stop_sent"))
+        logger.info(_("stopping_frida").format(serial=device_serial))
+        run_command([str(ADB_PATH), "-s", device_serial, "shell", "killall frida-server"], check=False)
+        logger.info(_("frida_stop_sent"))
     for path in [VENV_EXTRACTOR_PATH, VENV_CREATOR_PATH, KEYS_FOLDER]:
         if path.exists():
             try:
-                print(_("removing_temp_folder").format(folder=path.name))
+                logger.info(_("removing_temp_folder").format(folder=path.name))
                 if path.is_dir(): shutil.rmtree(path)
                 else: path.unlink()
-                print(_("removed_success"))
-            except OSError as e: print(_("remove_warning").format(folder=path.name, e=e), file=sys.stderr)
+                logger.info(_("removed_success"))
+            except OSError as e: logger.warning(_("remove_warning").format(folder=path.name, e=e))
+
+    # --- Log file logic ---
+    log_file_path = Path(LOG_FILENAME)
+    should_delete_log = g_script_successful or g_user_interrupted
+
+    if log_file_path.exists():
+        if should_delete_log:
+            logger.info(_("log_file_removing").format(log_filename=LOG_FILENAME))
+        else:
+            logger.info(_("log_file_kept").format(log_filename=LOG_FILENAME))
+
+    logging.shutdown()
+
+    if should_delete_log and log_file_path.exists():
+        try:
+            log_file_path.unlink()
+            print(_("log_file_removed"))
+        except OSError as e:
+            print(_("log_file_remove_warning").format(log_filename=LOG_FILENAME, e=e))
 
 def select_language():
     """Prosi użytkownika o wybór języka i ustawia globalną zmienną LANG."""
     global LANG
     while True:
-        choice = input(_("lang_prompt")).strip()
+        choice = input(MESSAGES["lang_prompt"]["pl"]).strip()
         if choice == '1' or choice == '':
             LANG = 'pl'
             return
@@ -397,29 +597,163 @@ def select_language():
             LANG = 'en'
             return
         else:
-            print("Invalid choice. Please enter 1 or 2.")
+            # Wyświetl w obu językach, ponieważ język nie został jeszcze poprawnie ustawiony
+            print(MESSAGES["invalid_lang_choice"]["pl"] + " / " + MESSAGES["invalid_lang_choice"]["en"])
+
+def get_device_architecture(device_serial: str):
+    """Pobiera architekturę procesora z urządzenia."""
+    logger.info(_("checking_architecture"))
+    result = run_command([str(ADB_PATH), "-s", device_serial, "shell", "getprop", "ro.product.cpu.abi"])
+    if result and result.stdout:
+        arch = result.stdout.strip()
+        logger.info(_("architecture_found").format(arch=arch))
+        return arch
+    logger.error(_("architecture_fail"))
+    return None
+
+def download_and_prepare_frida_server(architecture: str) -> bool:
+    """Pobiera, rozpakowuje i przygotowuje odpowiedni plik frida-server."""
+    api_url = "https://api.github.com/repos/frida/frida/releases/latest"
+    try:
+        with urllib.request.urlopen(api_url) as response:
+            release_data = json.loads(response.read().decode())
+    except Exception as e:
+        logger.error(_("frida_api_fail"))
+        logger.debug(f"GitHub API error: {e}")
+        return False
+
+    tag_name = release_data.get('tag_name')
+    if not tag_name:
+        logger.error(_("frida_api_fail"))
+        return False
+
+    asset_name = f"frida-server-{tag_name}-android-{architecture}.xz"
+    download_url = next((asset.get('browser_download_url') for asset in release_data.get('assets', []) if asset.get('name') == asset_name), None)
+
+    if not download_url:
+        logger.error(_("frida_asset_not_found").format(arch=architecture))
+        return False
+
+    xz_filename = Path(asset_name)
+    logger.info(_("frida_downloading").format(arch=architecture))
+    try:
+        urllib.request.urlretrieve(download_url, xz_filename)
+    except Exception as e:
+        logger.error(_("frida_download_fail")); logger.debug(f"Download error: {e}")
+        return False
+
+    logger.info(_("frida_unpacking"))
+    try:
+        with lzma.open(xz_filename, 'rb') as f_in, open(FRIDA_SERVER_FILENAME, 'wb') as f_out:
+            shutil.copyfileobj(f_in, f_out)
+        if sys.platform != "win32": os.chmod(FRIDA_SERVER_FILENAME, 0o755)
+    except Exception as e:
+        logger.error(_("frida_unpack_fail")); logger.debug(f"Unpack error: {e}")
+        return False
+    finally:
+        if xz_filename.exists(): xz_filename.unlink()
+
+    logger.info(_("frida_success").format(filename=FRIDA_SERVER_FILENAME))
+    return True
+
+def ensure_correct_frida_server(device_serial: str) -> bool:
+    """Orkiestruje proces sprawdzania i pobierania serwera Frida."""
+    arch = get_device_architecture(device_serial)
+    if not arch: return False
+
+    prompt_key = "frida_exists_prompt" if Path(FRIDA_SERVER_FILENAME).is_file() else "frida_download_prompt"
+    use_existing_char = 'u'
+    download_char = 'p' if LANG == 'pl' else 'd'
+    confirm_char = 't' if LANG == 'pl' else 'y'
+    
+    try:
+        answer = input(_(prompt_key)).lower().strip()
+        if prompt_key == "frida_exists_prompt":
+            if answer.startswith(download_char):
+                return download_and_prepare_frida_server(arch)
+            logger.info(_("frida_using_existing"))
+            return True
+        elif prompt_key == "frida_download_prompt":
+            if answer == '' or answer.startswith(confirm_char):
+                return download_and_prepare_frida_server(arch)
+    except (KeyboardInterrupt, EOFError):
+        pass # Pozwól na ciche przerwanie
+
+    logger.critical(_("frida_server_missing_error").format(filename=FRIDA_SERVER_FILENAME))
+    return False
+
+def check_and_perform_cleanup():
+    """Sprawdza pozostałości i pyta użytkownika o ich usunięcie."""
+    leftover_paths = [p for p in [VENV_EXTRACTOR_PATH, VENV_CREATOR_PATH, KEYS_FOLDER] if p.exists()]
+    if not leftover_paths:
+        return True
+
+    logger.warning(_("cleanup_warning"))
+    for path in leftover_paths:
+        logger.warning(f"  - {path.name}")
+    
+    try:
+        answer = input(_("cleanup_prompt")).lower().strip()
+        if answer in ["", "y", "t", "yes", "tak"]:
+            for path in leftover_paths:
+                logger.info(_("cleanup_in_progress").format(path=path.name))
+                if path.is_dir(): shutil.rmtree(path)
+                else: path.unlink()
+            logger.info(_("cleanup_success"))
+            return True
+        else:
+            logger.info(_("cleanup_aborted"))
+            return False
+    except (KeyboardInterrupt, EOFError):
+        logger.info("\n" + _("cleanup_aborted"))
+        return False
 
 def main():
-    select_language()
-    print(_("main_title"))
-    if not ADB_PATH or not ADB_PATH.is_file():
-        print(_("adb_not_found"), file=sys.stderr); sys.exit(1)
+    global g_script_successful, g_user_interrupted
     device_serial = None
     try:
-        device_serial, extraction_success, client_id_path, priv_key_path = run_extraction_phase()
+        select_language()
+        setup_logging()
+        if not check_and_perform_cleanup(): sys.exit(1)
+        logger.info(_("main_title"))
+        if not ADB_PATH or not ADB_PATH.is_file():
+            logger.critical(_("adb_not_found")); sys.exit(1)
+        
+        # START: Poprawiona logika
+        device_serial = select_device()
+        if not device_serial:
+            sys.exit(1)
+            
+        if not ensure_correct_frida_server(device_serial):
+            sys.exit(1)
+        # END: Poprawiona logika
+
+        extraction_success, client_id_path, priv_key_path = run_extraction_phase(device_serial)
         if not extraction_success:
-            print(_("phase1_interrupted"), file=sys.stderr); sys.exit(1)
+            logger.error(_("phase1_interrupted")); sys.exit(1)
+        
         creation_success = run_creation_phase(client_id_path, priv_key_path)
         if creation_success:
-            print(_("process_finished_success").format(filename=FINAL_WVD_FILENAME.name))
+            logger.info(_("process_finished_success").format(filename=FINAL_WVD_FILENAME.name))
+            g_script_successful = True
         else:
-            print(_("phase2_interrupted"), file=sys.stderr); sys.exit(1)
+            logger.error(_("phase2_interrupted")); sys.exit(1)
+
     except KeyboardInterrupt:
-        print(_("user_interrupt"))
+        g_user_interrupted = True
+        logger.info(_("user_interrupt"))
     except Exception as e:
-        print(_("critical_error").format(e=e), file=sys.stderr)
+        # Dodatkowy debug, aby zobaczyć pełny traceback w logu
+        logger.debug("Caught exception in main loop", exc_info=True)
+        logger.critical(_("critical_error").format(e=e))
     finally:
         cleanup(device_serial)
+        # Tylko jeśli nie było przerwania przez użytkownika, zapytaj o Enter
+        if not g_user_interrupted:
+            try:
+                input(_("press_enter_to_exit"))
+            except (KeyboardInterrupt, EOFError):
+                pass
 
 if __name__ == "__main__":
     main()

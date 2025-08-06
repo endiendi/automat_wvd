@@ -3,6 +3,7 @@
 katalog_kopie/
 build/
 /*
+!/img/
 !/.gitignore
 !/README.md
 !/automat_wvd_automatyczna.py

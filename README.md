@@ -19,9 +19,6 @@ Skrypt został pomyślnie przetestowany w następującej konfiguracji:
 
 ### Pliki w projekcie
 
-*   `automat_wvd_reczna_pywidevine.py` - Główny skrypt, który należy uruchomić.
-*   `frida-server` - **(Musisz dostarczyć ten plik samodzielnie)**. Jest to plik binarny serwera Frida, który musi być dopasowany do architektury procesora Twojego urządzenia Android.
-
 ### Wymagania wstępne
 
 Zanim zaczniesz, upewnij się, że spełniasz następujące wymagania:
@@ -30,21 +27,18 @@ Zanim zaczniesz, upewnij się, że spełniasz następujące wymagania:
 2.  **Zrootowane urządzenie z Androidem**. Zalecany jest **emulator** skonfigurowany w Android Studio z obrazem systemu "Google APIs".
 3.  **Włączone debugowanie USB** na urządzeniu Android.
 4.  Zainstalowane **narzędzia Android SDK Platform-Tools** (zazwyczaj dołączane do instalacji Android Studio). Skrypt spróbuje automatycznie zlokalizować `adb`, ale zaleca się dodanie folderu z narzędziami do systemowej zmiennej środowiskowej `PATH`.
-5.  Pobrany plik binarny **`frida-server`**.
 
-### Instrukcja Przygotowania
+### Przygotowanie pliku `frida-server`
 
-1.  **Pobierz `frida-server`**:
-    *   Przejdź na stronę oficjalnych wydań Fridy na GitHubie: https://github.com/frida/frida/releases.
-    *   Znajdź odpowiednią wersję. Wersja, która działała w testowanej konfiguracji to **`frida-server-17.2.15-android-x86_64.xz`**.
-    *   Pamiętaj, aby dopasować architekturę (`ARCH`) do swojego urządzenia:
-        *   `x86_64` dla emulatorów na komputerach z procesorem Intel/AMD.
-        *   `arm64` dla większości nowoczesnych, fizycznych telefonów.
-    *   Rozpakuj archiwum `.xz`. np 7-Zip.
-    *   Zmień nazwę rozpakowanego pliku na `frida-server`.
+**Metoda zalecana (Automatyczna):**
+Nie musisz nic robić! Skrypt sam wykryje architekturę Twojego urządzenia i zapyta, czy chcesz automatycznie pobrać i przygotować odpowiednią wersję `frida-server`.
 
-2.  **Przygotuj folder projektu**:
-    *   Umieść plik skryptu `automat_wvd_reczna_pywidevine.py` oraz pobrany i przemianowany `frida-server` w tym samym folderze.
+**Metoda alternatywna (Manualna):**
+Jeśli wolisz przygotować plik samodzielnie, postępuj zgodnie z poniższymi krokami:
+1.  Sprawdź architekturę urządzenia poleceniem: `adb shell getprop ro.product.cpu.abi`.
+2.  Pobierz odpowiedni plik `frida-server-VERSION-android-ARCH.xz` z oficjalnych wydań Fridy.
+3.  Rozpakuj archiwum `.xz` (np. za pomocą 7-Zip).
+4.  Zmień nazwę rozpakowanego pliku na `frida-server` i umieść go w tym samym folderze co skrypt.
 
 ### Instrukcja Użycia
 
@@ -56,14 +50,19 @@ Zanim zaczniesz, upewnij się, że spełniasz następujące wymagania:
         ```bash
         python automat_wvd_reczna_pywidevine.py
         ```
+    *   Skrypt najpierw zapyta o preferowany język.
+    *   Następnie sprawdzi, czy istnieją pozostałości po poprzednich uruchomieniach i zaproponuje ich usunięcie.
+    *   W kolejnym kroku skrypt sprawdzi obecność pliku `frida-server` i zaoferuje jego automatyczne pobranie, jeśli go nie znajdzie.
 
 3.  **Postępuj zgodnie z instrukcjami na ekranie**:
+    *   **Uwaga**: Pierwsze uruchomienie, zwłaszcza tworzenie środowisk wirtualnych i instalacja bibliotek, może potrwać kilka minut. Prosimy o cierpliwość.
+
     *   **Faza 1: Pobieranie Kluczy**
         *   Skrypt najpierw utworzy środowisko wirtualne `venv_extractor` i zainstaluje w nim bibliotekę `keydive`.
         *   Następnie wyświetli listę podłączonych urządzeń i poprosi Cię o wybór jednego (jeśli jest ich więcej niż jedno).
         *   Skrypt automatycznie przygotuje urządzenie (prześle i uruchomi serwer Fridy).
         *   **!!! TERAZ TWOJA KOLEJ !!!**
-            *   Skrypt wyświetli komunikat `--- WSKAZÓWKA: Odtwórz wideo na https://shaka-player-demo.appspot.com ---`.
+            *   Skrypt wyświetli komunikat `--- WSKAZÓWKA: Odtwórz wideo na https://shaka-player-demo.appspot.com... ---`.
             *   **To jest moment na Twoje działanie**: na emulatorze **ręcznie** otwórz przeglądarkę Chrome, wejdź na jeden z podanych adresów (np. `https://shaka-player-demo.appspot.com` lub `https://bitmovin.com/demos/drm`) i **odtwórz wideo**.
             *   W tym czasie w terminalu powinny pojawić się logi z `keydive` świadczące o przechwytywaniu kluczy.
 
@@ -101,9 +100,6 @@ The script was successfully tested in the following configuration:
 
 ### Files in the project
 
-*   `automat_wvd_reczna_pywidevine.py` - The main script to run.
-*   `frida-server` - **(You must provide this file yourself)**. This is the Frida server binary, which must match the processor architecture of your Android device.
-
 ### Prerequisites
 
 Before you begin, make sure you meet the following requirements:
@@ -112,21 +108,18 @@ Before you begin, make sure you meet the following requirements:
 2.  **A rooted Android device**. An **emulator** configured in Android Studio with a "Google APIs" system image is recommended.
 3.  **USB debugging enabled** on the Android device.
 4.  **Android SDK Platform-Tools** installed (usually included with the Android Studio installation). The script will try to locate `adb` automatically, but it is recommended to add the tools folder to the system's `PATH` environment variable.
-5.  The **`frida-server`** binary downloaded.
 
-### Preparation Instructions
+### Preparing the `frida-server` file
 
-1.  **Download `frida-server`**:
-    *   Go to the official Frida releases page on GitHub: https://github.com/frida/frida/releases.
-    *   Find the appropriate version. The version that worked in the tested configuration is **`frida-server-17.2.15-android-x86_64.xz`**.
-    *   Remember to match the architecture (`ARCH`) to your device:
-        *   `x86_64` for emulators on computers with an Intel/AMD processor.
-        *   `arm64` for most modern physical phones.
-    *   Unpack the `.xz` archive (e.g., using 7-Zip).
-    *   Rename the unpacked file to `frida-server`.
+**Recommended Method (Automatic):**
+You don't have to do anything! The script will detect your device's architecture on its own and ask if you want to automatically download and prepare the correct version of `frida-server`.
 
-2.  **Prepare the project folder**:
-    *   Place the `automat_wvd_reczna_pywidevine.py` script and the downloaded and renamed `frida-server` in the same folder.
+**Alternative Method (Manual):**
+If you prefer to prepare the file yourself, follow these steps:
+1.  Check your device's architecture with the command: `adb shell getprop ro.product.cpu.abi`.
+2.  Download the appropriate `frida-server-VERSION-android-ARCH.xz` file from the official Frida releases.
+3.  Unpack the `.xz` archive (e.g., using 7-Zip).
+4.  Rename the unpacked file to `frida-server` and place it in the same folder as the script.
 
 ### Usage Instructions
 
@@ -138,8 +131,13 @@ Before you begin, make sure you meet the following requirements:
         ```bash
         python automat_wvd_reczna_pywidevine.py
         ```
+    *   The script will first ask for your preferred language.
+    *   It will then check for leftovers from previous runs and offer to remove them.
+    *   Next, the script will check for the `frida-server` file and offer to download it automatically if it's not found.
 
 3.  **Follow the on-screen instructions**:
+    *   **Note**: The first run, especially creating virtual environments and installing libraries, may take a few minutes. Please be patient.
+
     *   **Phase 1: Key Extraction**
         *   The script will first create a virtual environment `venv_extractor` and install the `keydive` library in it.
         *   It will then display a list of connected devices and ask you to choose one (if there is more than one).
@@ -161,3 +159,12 @@ Before you begin, make sure you meet the following requirements:
 ### Zastrzeżenie (Disclaimer)
 
 This project is intended for educational and research purposes only. Use it responsibly and only with content to which you have legal rights. The author is not responsible for any misuse of this tool.
+
+
+## Zięcia 
+
+![Przykład działania skanera](img 01.png)
+
+![Przykład działania skanera](img 02.png)
+
+![Przykład działania skanera](img 03.png)
