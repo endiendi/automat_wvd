@@ -163,8 +163,8 @@ This project is intended for educational and research purposes only. Use it resp
 
 ## Zięcia 
 
-![Przykład działania skanera](img 01.png)
+![Zięcie poglądowe](img/img_01.png)
 
-![Przykład działania skanera](img 02.png)
+![Zięcie poglądowe](img/img_02.png)
 
-![Przykład działania skanera](img 03.png)
+![Zięcie poglądowe](img/img_03.png)
