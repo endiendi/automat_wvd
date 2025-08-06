@@ -29,7 +29,7 @@ Zanim zaczniesz, upewnij się, że spełniasz następujące wymagania:
 1.  **Python 3** zainstalowany na Twoim komputerze.
 2.  **Zrootowane urządzenie z Androidem**. Zalecany jest **emulator** skonfigurowany w Android Studio z obrazem systemu "Google APIs".
 3.  **Włączone debugowanie USB** na urządzeniu Android.
-4.  Zainstalowane **Android SDK Platform-Tools**. Skrypt spróbuje automatycznie zlokalizować `adb`, ale najlepiej dodać folder z narzędziami do systemowej zmiennej środowiskowej `PATH`.
+4.  Zainstalowane **narzędzia Android SDK Platform-Tools** (zazwyczaj dołączane do instalacji Android Studio). Skrypt spróbuje automatycznie zlokalizować `adb`, ale zaleca się dodanie folderu z narzędziami do systemowej zmiennej środowiskowej `PATH`.
 5.  Pobrany plik binarny **`frida-server`**.
 
 ### Instrukcja Przygotowania
@@ -111,7 +111,7 @@ Before you begin, make sure you meet the following requirements:
 1.  **Python 3** installed on your computer.
 2.  **A rooted Android device**. An **emulator** configured in Android Studio with a "Google APIs" system image is recommended.
 3.  **USB debugging enabled** on the Android device.
-4.  **Android SDK Platform-Tools** installed. The script will try to locate `adb` automatically, but it's best to add the tools folder to the system's `PATH` environment variable.
+4.  **Android SDK Platform-Tools** installed (usually included with the Android Studio installation). The script will try to locate `adb` automatically, but it is recommended to add the tools folder to the system's `PATH` environment variable.
 5.  The **`frida-server`** binary downloaded.
 
 ### Preparation Instructions
