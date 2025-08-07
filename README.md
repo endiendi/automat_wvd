@@ -156,10 +156,10 @@ This project is intended for educational and research purposes only. Use it resp
 
 
 
-## Zięcia 
+## Zdjęcia 
 
-![Zięcie poglądowe](img/img_01.png)
+![Zdjęcia poglądowe](img/img_01.png)
 
-![Zięcie poglądowe](img/img_02.png)
+![Zdjęcia poglądowe](img/img_02.png)
 
-![Zięcie poglądowe](img/img_03.png)
+![Zdjęcia poglądowe](img/img_03.png)
