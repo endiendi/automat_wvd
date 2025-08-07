@@ -1,11 +1,12 @@
 *.log
 *.temp
+# start.py
 katalog_kopie/
 build/
 /*
 !/img/
 !/.gitignore
 !/README.md
-!/automat_wvd_automatyczna.py
-!/automat_wvd_reczna.py
-!/automat_wvd_reczna_pywidevine.py
+# !/automat_wvd_automatyczna.py
+# !/automat_wvd_reczna.py
+!/automat_wvd_pywidevine.py

@@ -1,5 +1,5 @@
 #
-# --- Plik: automat_wvd_reczna_pywidevine_multilang.py (Wersja z wyborem języka) ---
+# --- Plik: automat_wvd_reczna_pywidevine.py (Wersja z ulepszoną automatyzacją) ---
 #
 """
 ### Zastrzeżenie (Disclaimer) ###
@@ -56,8 +56,8 @@ g_user_interrupted = False
 # --- Multilingual Messages ---
 MESSAGES = {
     "lang_prompt": {
-        "pl": "\nWybierz wersję językową (Choose language version):\n 1. Polski (default)\n 2. English\nWybór [1]: ",
-        "en": "\nChoose language version:\n 1. Polski (default)\n 2. English\nChoice [1]: "
+        "pl": "\nWybierz wersję językową (Choose language version):\n\n 1. Polski (default)\n 2. English\nWybór [1]: ",
+        "en": "\nChoose language version:\n\n 1. Polski (default)\n 2. English\nChoice [1]: "
     },
     "main_title": {
         "pl": "\n---- AUTOMATYCZNY GENERATOR PLIKU WIDEVINE ----",
@@ -84,20 +84,20 @@ MESSAGES = {
         "en": "\n--- Selecting ADB device... ---"
     },
     "no_adb_device_found": {
-        "pl": "ERROR: Nie znaleziono żadnego podłączonego urządzenia ADB.",
-        "en": "ERROR: No connected ADB devices found."
+        "pl": "INFO: Nie znaleziono żadnego podłączonego urządzenia ADB. Możesz uruchomić nowe.",
+        "en": "INFO: No connected ADB devices found. You can launch a new one."
     },
     "single_adb_device_found": {
-        "pl": "SUCCESS: Znaleziono jedno urządzenie: {avd_name} ({serial}). Zostanie ono użyte automatycznie.",
-        "en": "SUCCESS: Found one device: {avd_name} ({serial}). It will be used automatically."
+        "pl": "INFO: Znaleziono jedno urządzenie: {avd_name} ({serial}).",
+        "en": "INFO: Found one device: {avd_name} ({serial})."
     },
     "multiple_adb_devices_found": {
-        "pl": "INFO: Znaleziono więcej niż jedno urządzenie...",
-        "en": "INFO: More than one device found..."
+        "pl": "INFO: Znaleziono wiele urządzeń. Wybierz jedno z listy.\n",
+        "en": "INFO: Multiple devices found. Please select one from the list.\n"
     },
     "select_device_prompt": {
-        "pl": "Wybierz numer (1-{count}): ",
-        "en": "Select number (1-{count}): "
+        "pl": "Wybierz numer (1-{count}) lub [U] aby uruchomić nowy emulator: ",
+        "en": "Select number (1-{count}) or [L] to launch a new emulator: "
     },
     "device_display_format": {
         "pl": "  {index}. {avd_name} ({serial})",
@@ -125,11 +125,19 @@ MESSAGES = {
     },
     "device_env_success": {
         "pl": "SUCCESS: Środowisko na urządzeniu przygotowane.",
-        "en": "SUCCESS: Environment on the device has been prepared."
+        "en": "SUCCESS: Device environment prepared."
     },
     "running_keydive": {
-        "pl": "\n--- Uruchamianie 'keydive' ---\n\n--- WSKAZÓWKA: Odtwórz wideo na https://shaka-player-demo.appspot.com lub https://bitmovin.com/demos/drm ---\n",
-        "en": "\n--- Running 'keydive' ---\n\n--- HINT: Play a video on https://shaka-player-demo.appspot.com or https://bitmovin.com/demos/drm ---\n"
+        "pl": "\n--- Uruchamianie 'keydive' ---\n",
+        "en": "\n--- Running 'keydive' ---\n"
+    },
+    "keydive_manual_hint": {
+        "pl": "--- WSKAZÓWKA: Odtwórz wideo na https://shaka-player-demo.appspot.com lub https://bitmovin.com/demos/drm ---",
+        "en": "--- HINT: Play a video on https://shaka-player-demo.appspot.com or https://bitmovin.com/demos/drm ---"
+    },
+    "manual_play_hint": {
+        "pl": "WSKAZÓWKA: Jeśli wideo nie uruchomiło się automatycznie, naciśnij przycisk 'Play' przy wideo obsługującym DRM na stronie, aby wywołać proces DRM. \nMoże również pojawić się komunikat z prośbą o zalogowanie się na konto Google — nie musisz się logować.",
+        "en": "HINT: If the video does not start automatically, press the 'Play' button on a DRM-enabled video on the page to trigger the DRM process. \nA message asking you to sign in to a Google account may also appear — you do not need to sign in."
     },
     "keydive_error": {
         "pl": "\nERROR: Proces 'keydive' zakończył się błędem lub został przerwany.",
@@ -212,8 +220,8 @@ MESSAGES = {
         "en": "\nProcess aborted due to an error in Phase 1."
     },
     "process_finished_success": {
-        "pl": "\n\n" + "*"*60 + "\n**** PROCES ZAKOŃCZONY POMYŚLNIE! ****\n" + "**** Twój plik '{filename}' jest gotowy. ****\n" + "*"*60,
-        "en": "\n\n" + "*"*60 + "\n**** PROCESS COMPLETED SUCCESSFULLY! ****\n" + "**** Your file '{filename}' is ready. ****\n" + "*"*60
+        "pl": "\n\n" + "*"*60 + "\n**** PROCES ZAKOŃCZONY POMYŚLNIE! ****\n" + "**** Plik '{filename}' jest gotowy. ****\n" + "*"*60,
+        "en": "\n\n" + "*"*60 + "\n**** PROCESS COMPLETED SUCCESSFULLY! ****\n" + "**** The file '{filename}' is ready. ****\n" + "*"*60
     },
     "phase2_interrupted": {
         "pl": "\nPrzerwano proces z powodu błędu w Fazie 2.",
@@ -230,6 +238,10 @@ MESSAGES = {
     "command_error": {
         "pl": "ERROR: Polecenie '{cmd}' zakończyło się błędem (kod: {code}).",
         "en": "ERROR: Command '{cmd}' failed with exit code {code}."
+    },
+    "command_timeout": {
+        "pl": "ERROR: Polecenie '{cmd}' przekroczyło limit czasu.",
+        "en": "ERROR: Command '{cmd}' timed out."
     },
     "command_not_found": {
         "pl": "ERROR: Nie znaleziono polecenia: {cmd}",
@@ -271,7 +283,6 @@ Uruchom skrypt ponownie i zgódź się na automatyczne pobranie.""",
 CRITICAL: Cannot continue without the '{filename}' file.
 Please restart the script and agree to the automatic download."""
     },
-    # START: Dodane brakujące komunikaty
     "checking_architecture": {
         "pl": "\n--- Sprawdzanie architektury urządzenia... ---",
         "en": "\n--- Checking device architecture... ---"
@@ -285,7 +296,7 @@ Please restart the script and agree to the automatic download."""
         "en": "ERROR: Could not determine device architecture. Cannot automatically download Frida server."
     },
     "frida_exists_prompt": {
-        "pl": "INFO: Plik 'frida-server' już istnieje. Chcesz go użyć, czy pobrać najnowszą wersję?\n(U)żyj istniejącego, (P)obierz najnowszą: [U/p] ",
+        "pl": "INFO: Plik 'frida-server' już istnieje. Chcesz go użyć, czy pobrać najnowszą wersję?\n(U)żyj istniejącego, (P)obierz najnowszą: [U/p]: ",
         "en": "INFO: The 'frida-server' file already exists. Do you want to use it or download the latest version?\n(U)se existing, (D)ownload latest: [U/d] "
     },
     "frida_download_prompt": {
@@ -320,7 +331,6 @@ Please restart the script and agree to the automatic download."""
         "pl": "SUCCESS: Serwer Frida został pomyślnie pobrany i przygotowany jako '{filename}'.",
         "en": "SUCCESS: Frida server was successfully downloaded and prepared as '{filename}'."
     },
-    # END: Dodane brakujące komunikaty
     "log_file_kept": {
         "pl": "\nINFO: Proces zakończył się błędem. Plik diagnostyczny został zapisany jako '{log_filename}' w celu analizy.",
         "en": "\nINFO: The process failed. A diagnostic log file has been saved as '{log_filename}' for analysis."
@@ -344,7 +354,97 @@ Please restart the script and agree to the automatic download."""
     "log_file_remove_warning": {
         "pl": "WARNING: Nie można usunąć pliku logu '{log_filename}'. Błąd: {e}",
         "en": "WARNING: Could not remove log file '{log_filename}'. Error: {e}"
+    },
+    # START: Nowe komunikaty dla automatyzacji
+    "emulator_not_found": {
+        "pl": "CRITICAL: Nie udało się zlokalizować 'emulator'. Sprawdź, czy ścieżka do Android SDK jest poprawna.",
+        "en": "CRITICAL: Could not locate 'emulator'. Check if the Android SDK path is correct."
+    },
+    "no_avds_found": {
+        "pl": "ERROR: Nie znaleziono żadnych skonfigurowanych emulatorów (AVD). Utwórz AVD w Android Studio.",
+        "en": "ERROR: No configured emulators (AVD) found. Please create an AVD in Android Studio."
+    },
+    "launching_emulator_title": {
+        "pl": "\n--- Uruchamianie emulatora ---",
+        "en": "\n--- Launching Emulator ---"
+    },
+    "select_avd_prompt": {
+        "pl": "Wybierz numer emulatora do uruchomienia (1-{count}): ",
+        "en": "Select emulator number to launch (1-{count}): "
+    },
+    "launching_avd": {
+        "pl": "INFO: Uruchamianie emulatora '{avd_name}'... To może chwilę potrwać.",
+        "en": "INFO: Launching emulator '{avd_name}'... This may take a moment."
+    },
+    "waiting_for_boot": {
+        "pl": "INFO: Oczekiwanie na pełne uruchomienie systemu Android...",
+        "en": "INFO: Waiting for Android system to fully boot..."
+    },
+    "emulator_boot_success": {
+        "pl": "SUCCESS: Emulator jest gotowy do pracy (serial: {serial}).",
+        "en": "SUCCESS: Emulator is ready (serial: {serial})."
+    },
+    "prompt_auto_play": {
+        "pl": "\nCzy chcesz, abym automatycznie otworzył stronę z wideo DRM? [T/n]: ",
+        "en": "\nDo you want me to automatically open a DRM video page? [Y/n]: "
+    },
+    "select_drm_page": {
+        "pl": "\nWybierz stronę do otwarcia:\n",
+        "en": "\nSelect a page to open:\n"
+    },
+    "select_drm_page_prompt": {
+        "pl": "Twój wybór [1]: ",
+        "en": "Your choice [1]: "
+    },
+    "opening_url": {
+        "pl": "INFO: Otwieranie adresu URL '{url}' na urządzeniu...",
+        "en": "INFO: Opening URL '{url}' on the device..."
+    },
+    "shutting_down_emulator": {
+        "pl": "--- Zamykanie emulatora... ---",
+        "en": "--- Shutting down the emulator... ---"
+    },
+    "emulator_shutdown_success": {
+        "pl": "SUCCESS: Emulator został zamknięty.",
+        "en": "SUCCESS: Emulator has been shut down."
+    },
+    "emulator_shutdown_fail": {
+        "pl": "WARNING: Emulator mógł nie zostać zamknięty poprawnie. Może być konieczne zamknięcie go ręcznie.",
+        "en": "WARNING: The emulator may not have shut down correctly. You might need to close it manually."
+    },
+    "getting_devices_before_launch": {
+        "pl": "INFO: Sprawdzanie listy urządzeń przed uruchomieniem...",
+        "en": "INFO: Checking device list before launch..."
+    },
+    "waiting_for_new_device": {
+        "pl": "INFO: Oczekiwanie na pojawienie się nowego emulatora na liście urządzeń...",
+        "en": "INFO: Waiting for the new emulator to appear on the device list..."
+    },
+    "new_device_found": {
+        "pl": "SUCCESS: Wykryto nowy emulator o numerze seryjnym: {serial}",
+        "en": "SUCCESS: Detected new emulator with serial: {serial}"
+    },
+    "new_device_timeout": {
+        "pl": "ERROR: Przekroczono limit czasu oczekiwania na pojawienie się nowego emulatora.",
+        "en": "ERROR: Timed out waiting for the new emulator to appear."
+    },
+    "emulator_boot_timeout": {
+        "pl": "ERROR: Przekroczono limit czasu oczekiwania na pełne uruchomienie emulatora.",
+        "en": "ERROR: Timed out waiting for the emulator to fully boot."
+    },
+    "restarting_adb_server": {
+        "pl": "INFO: Restartowanie serwera ADB w celu zapewnienia stabilnego połączenia z nowym emulatorem...",
+        "en": "INFO: Restarting ADB server to ensure a stable connection with the new emulator..."
+    },
+    "adb_server_restart_success": {
+        "pl": "SUCCESS: Serwer ADB został pomyślnie zrestartowany.",
+        "en": "SUCCESS: ADB server restarted successfully."
+    },
+    "keydive_stabilization_wait": {
+        "pl": "INFO: Oczekiwanie {seconds}s na ustabilizowanie się keydive (może to spowodować chwilowe zamknięcie przeglądarki)...",
+        "en": "INFO: Waiting {seconds}s for keydive to stabilize (this may cause the browser to close temporarily)..."
     }
+    # END: Nowe komunikaty
 }
 
 
@@ -358,6 +458,10 @@ VENV_CREATOR_PATH = Path.cwd() / "venv_creator"
 FRIDA_SERVER_FILENAME = "frida-server"
 KEYS_FOLDER = Path.cwd() / "device"
 FINAL_WVD_FILENAME = Path.cwd() / "device.wvd"
+DRM_TEST_URLS = {
+    "1": "https://bitmovin.com/demos/drm",
+    "2": "https://shaka-player-demo.appspot.com/"
+}
 
 # --- Funkcje pomocnicze i wspólne ---
 def find_android_sdk():
@@ -375,9 +479,12 @@ def find_android_sdk():
 
 SDK_PATH = find_android_sdk()
 ADB_PATH = None
+EMULATOR_PATH = None # NOWOŚĆ
 if SDK_PATH:
     ADB_EXECUTABLE = "adb.exe" if sys.platform == "win32" else "adb"
+    EMULATOR_EXECUTABLE = "emulator.exe" if sys.platform == "win32" else "emulator" # NOWOŚĆ
     ADB_PATH = SDK_PATH / "platform-tools" / ADB_EXECUTABLE
+    EMULATOR_PATH = SDK_PATH / "emulator" / EMULATOR_EXECUTABLE # NOWOŚĆ
 
 def get_venv_path(venv_path: Path, executable: str):
     if sys.platform == "win32": return venv_path / "Scripts" / f"{executable}.exe"
@@ -398,13 +505,16 @@ def setup_logging():
     console_handler.setFormatter(logging.Formatter('%(message)s'))
     logger.addHandler(console_handler)
 
-def run_command(command, check=True, env=None):
+def run_command(command, check=True, env=None, timeout=None):
     try:
         logger.debug(f"Running command: {' '.join(map(str, command))}")
-        result = subprocess.run(command, check=check, capture_output=True, text=True, encoding='utf-8', errors='replace', env=env)
+        result = subprocess.run(command, check=check, capture_output=True, text=True, encoding='utf-8', errors='replace', env=env, timeout=timeout)
         if result.stdout: logger.debug(f"STDOUT:\n{result.stdout.strip()}")
         if result.stderr: logger.debug(f"STDERR:\n{result.stderr.strip()}")
         return result
+    except subprocess.TimeoutExpired:
+        logger.error(_("command_timeout").format(cmd=' '.join(map(str, command))))
+        return None
     except subprocess.CalledProcessError as e:
         logger.error(_("command_error").format(cmd=' '.join(map(str, e.cmd)), code=e.returncode))
         if e.stdout: logger.error(f"STDOUT:\n{e.stdout.strip()}")
@@ -414,23 +524,125 @@ def run_command(command, check=True, env=None):
         logger.error(_("command_not_found").format(cmd=command[0]))
         return None
 
-# START: Refaktoryzacja - funkcja do wyboru urządzenia
-def select_device():
-    """Wyszukuje podłączone urządzenia ADB i pozwala użytkownikowi wybrać jedno."""
+def get_connected_serials() -> list[str]:
+    """Zwraca listę numerów seryjnych podłączonych urządzeń."""
+    result = run_command([str(ADB_PATH), "devices"], check=False)
+    if not result or result.returncode != 0 or not result.stdout:
+        logger.debug("Polecenie adb devices nie powiodło się lub zwróciło pusty wynik.")
+        return []
+    lines = result.stdout.strip().splitlines()
+    # Zwraca listę numerów seryjnych dla urządzeń, które nie są 'offline'
+    return [line.split()[0] for line in lines[1:] if line.strip() and "offline" not in line.split()]
+
+# START: NOWA ZMODYFIKOWANA FUNKCJA
+def launch_new_emulator():
+    """Wyświetla listę AVD, pozwala wybrać jedno, uruchamia je i czeka na gotowość."""
+    logger.info(_("launching_emulator_title"))
+    if not EMULATOR_PATH or not EMULATOR_PATH.is_file():
+        logger.critical(_("emulator_not_found"))
+        return None, None
+
+    list_avds_cmd = [str(EMULATOR_PATH), "-list-avds"]
+    result = run_command(list_avds_cmd)
+    if not result or not result.stdout.strip():
+        logger.error(_("no_avds_found"))
+        return None, None
+    
+    available_avds = [line.strip() for line in result.stdout.strip().splitlines()]
+    for i, name in enumerate(available_avds, 1):
+        logger.info(f"  {i}. {name}")
+    
+    avd_name_to_launch = None
+    while True:
+        try:
+            choice = int(input(_("select_avd_prompt").format(count=len(available_avds)))) - 1
+            if 0 <= choice < len(available_avds):
+                avd_name_to_launch = available_avds[choice]
+                break
+            else:
+                logger.warning(_("invalid_number"))
+        except ValueError:
+            logger.warning(_("invalid_input"))
+
+    logger.info(_("getting_devices_before_launch"))
+    serials_before = set(get_connected_serials())
+    logger.debug(f"Urządzenia przed uruchomieniem: {serials_before}")
+
+    logger.info(_("launching_avd").format(avd_name=avd_name_to_launch))
+    emulator_process = subprocess.Popen(
+        [str(EMULATOR_PATH), "-avd", avd_name_to_launch, "-writable-system", "-no-snapshot-load"],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+    
+    logger.info(_("waiting_for_new_device"))
+    new_device_serial = None
+    start_time = time.time()
+    timeout = 180  # 3 minuty na pojawienie się urządzenia
+    while time.time() - start_time < timeout:
+        serials_after = set(get_connected_serials())
+        new_serials = serials_after - serials_before
+        if len(new_serials) == 1:
+            new_device_serial = new_serials.pop()
+            logger.info(_("new_device_found").format(serial=new_device_serial))
+            break
+        time.sleep(3)
+
+    if not new_device_serial:
+        logger.error(_("new_device_timeout"))
+        if emulator_process: emulator_process.terminate()
+        return None, None
+
+    # Teraz mamy konkretny numer seryjny i używamy go do dalszych poleceń
+    device_serial = new_device_serial
+    logger.info(_("waiting_for_boot"))
+    boot_timeout = 180  # Kolejne 3 minuty na pełne uruchomienie
+    boot_start_time = time.time()
+    while time.time() - boot_start_time < boot_timeout:
+        boot_prop_result = run_command([str(ADB_PATH), "-s", device_serial, "shell", "getprop", "sys.boot_completed"])
+        if boot_prop_result and "1" in boot_prop_result.stdout:
+            logger.info(_("emulator_boot_success").format(serial=device_serial))
+            
+            # Dodajemy dodatkowy, krótki czas oczekiwania, aby upewnić się, że wszystkie usługi systemowe
+            # (jak menedżer pakietów, który obsługuje intencje 'am start') są w pełni gotowe.
+            time.sleep(5)
+            
+            logger.info(_("restarting_adb_server"))
+            run_command([str(ADB_PATH), "kill-server"], check=False)
+            time.sleep(2)
+            run_command([str(ADB_PATH), "start-server"], check=True)
+            time.sleep(2)
+            logger.info(_("adb_server_restart_success"))
+            return device_serial, emulator_process
+        time.sleep(3)
+
+    logger.error(_("emulator_boot_timeout"))
+    if emulator_process: emulator_process.terminate()
+    return None, None
+
+def select_or_launch_device():
+    """Wyszukuje podłączone urządzenia lub pozwala uruchomić nowe."""
     logger.info(_("select_adb_device"))
     try:
-        result = subprocess.run([str(ADB_PATH), "devices"], capture_output=True, text=True, check=True, encoding='utf-8')
+        # Dodajemy timeout, aby zapobiec zawieszeniu się skryptu, jeśli serwer ADB nie odpowiada.
+        result = run_command([str(ADB_PATH), "devices"], timeout=15)
+        if not result:
+            logger.error(_("adb_comm_error").format(e="Nie można uzyskać listy urządzeń. Sprawdź połączenie i serwer ADB."))
+            return None, None
+
         lines = result.stdout.strip().splitlines()
         serials = [line.split()[0] for line in lines[1:] if line.strip() and "device" in line]
+        
         if not serials:
-            logger.error(_("no_adb_device_found"))
-            return None
+            logger.info(_("no_adb_device_found"))
+            return launch_new_emulator()
 
         device_details = []
         for serial in serials:
             try:
-                avd_name_proc = subprocess.run([str(ADB_PATH), "-s", serial, "emu", "avd", "name"], capture_output=True, text=True, check=True, timeout=5, encoding='utf-8')
-                avd_name = avd_name_proc.stdout.strip().splitlines()[0]
+                avd_name_proc = run_command([str(ADB_PATH), "-s", serial, "emu", "avd", "name"], check=False, timeout=10)
+                avd_name = avd_name_proc.stdout.strip().splitlines()[0] if avd_name_proc and avd_name_proc.stdout else serial
                 device_details.append((serial, avd_name))
             except Exception:
                 device_details.append((serial, serial))
@@ -438,28 +650,95 @@ def select_device():
         if len(device_details) == 1:
             device_serial, avd_name = device_details[0]
             logger.info(_("single_adb_device_found").format(avd_name=avd_name, serial=device_serial))
-            return device_serial
+            return device_serial, None
         else:
             logger.info(_("multiple_adb_devices_found"))
             for i, (serial, avd_name) in enumerate(device_details, 1):
                 logger.info(_("device_display_format").format(index=i, avd_name=avd_name, serial=serial))
             
             while True:
+                launch_char = 'u' if LANG == 'pl' else 'l'
+                choice_str = input(_("select_device_prompt").format(count=len(device_details))).lower().strip()
+                if choice_str == launch_char:
+                    return launch_new_emulator()
                 try:
-                    choice_index = int(input(_("select_device_prompt").format(count=len(device_details)))) - 1
+                    choice_index = int(choice_str) - 1
                     if 0 <= choice_index < len(device_details):
-                        return device_details[choice_index][0]
+                        return device_details[choice_index][0], None
                     else:
                         logger.warning(_("invalid_number"))
                 except ValueError:
                     logger.warning(_("invalid_input"))
     except Exception as e:
         logger.error(_("adb_comm_error").format(e=e))
-        return None
-# END: Refaktoryzacja
+        return None, None
+# END: NOWA ZMODYFIKOWANA FUNKCJA
+
+# START: NOWA FUNKCJA
+def prompt_for_video_action() -> tuple[bool, str | None]:
+    """Pyta użytkownika o akcję wideo i ZWRACA jego wybór."""
+    try:
+        answer = input(_("prompt_auto_play")).lower().strip()
+        
+        if answer.startswith('n'):
+            # Użytkownik nie chce automatyzacji
+            return False, None
+
+        # Użytkownik chce automatyzacji, pytamy o stronę
+        logger.info(_("select_drm_page"))
+        for key, value in DRM_TEST_URLS.items():
+            logger.info(f"  {key}. {value}")
+        
+        url_to_open = None
+        while True:
+            choice = input(_("select_drm_page_prompt")).strip()
+            
+            if choice == '':
+                choice = '1'
+            
+            if choice in DRM_TEST_URLS:
+                url_to_open = DRM_TEST_URLS[choice]
+                return True, url_to_open
+            else:
+                logger.warning(_("invalid_input"))
+
+    except (KeyboardInterrupt, EOFError):
+        logger.info(_("user_interrupt"))
+        raise
+    
+    return False, None # Fallback w razie nieoczekiwanego wyjścia z pętli
+# END: NOWA FUNKCJA
+
+def _trigger_drm_on_device(device_serial: str, url: str):
+    """
+    Otwiera podany adres URL na urządzeniu, aby wywołać DRM.
+    Otwiera go dwukrotnie, aby obejść potencjalny problem z zamykaniem przeglądarki przez keydive.
+    """
+    open_url_cmd = [str(ADB_PATH), "-s", device_serial, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url]
+
+    # 1. Otwórz stronę po raz pierwszy. Może zostać zamknięta przez keydive.
+    logger.info(_("opening_url").format(url=url) + " (próba 1/2)")
+    try:
+        subprocess.run(open_url_cmd, check=False, timeout=15, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        logger.warning("Polecenie otwarcia URL przekroczyło limit czasu, ale prawdopodobnie wykonało się w tle.")
+
+    # 2. Poczekaj, aż keydive się ustabilizuje.
+    stabilization_time = 10
+    logger.info(_("keydive_stabilization_wait").format(seconds=stabilization_time))
+    time.sleep(stabilization_time)
+
+    # 3. Otwórz stronę ponownie, aby na pewno była na pierwszym planie.
+    logger.info(_("opening_url").format(url=url) + " (próba 2/2)")
+    try:
+        subprocess.run(open_url_cmd, check=False, timeout=15, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        logger.warning("Polecenie otwarcia URL (2) przekroczyło limit czasu, ale mogło się wykonać.")
+    
+    logger.info(_("manual_play_hint"))
 
 # --- Faza 1: Ekstrakcja kluczy z urządzenia ---
-def run_extraction_phase(device_serial: str):
+def run_extraction_phase(device_serial: str, user_action: tuple[bool, str | None]):
     logger.info(_("phase1_header"))
     logger.info(_("venv_creation_notice"))
     logger.info(_("creating_venv").format(path=VENV_EXTRACTOR_PATH))
@@ -468,7 +747,7 @@ def run_extraction_phase(device_serial: str):
     python_in_venv = get_venv_path(VENV_EXTRACTOR_PATH, "python")
     
     logger.info(_("installing_lib").format(library='keydive'))
-    install_result = run_command([str(python_in_venv), "-m", "pip", "install", "--no-cache-dir", "keydive"])
+    install_result = run_command([str(python_in_venv), "-m", "pip", "install", "--no-cache-dir", "keydive"], timeout=600)
     if not install_result: return False, None, None
 
     logger.info(_("preparing_device_env").format(serial=device_serial))
@@ -486,14 +765,53 @@ def run_extraction_phase(device_serial: str):
     subprocess.Popen([str(ADB_PATH), "-s", device_serial, "shell", "/data/local/tmp/frida-server &"])
     time.sleep(2)
     logger.info(_("device_env_success"))
+    
     logger.info(_("running_keydive"))
     env = os.environ.copy(); env["PATH"] = str(ADB_PATH.parent) + os.pathsep + env.get("PATH", "")
-    keydive_command = [str(get_venv_path(VENV_EXTRACTOR_PATH, "keydive")), "-s", device_serial]
+    keydive_command = [
+        str(get_venv_path(VENV_EXTRACTOR_PATH, "keydive")),
+        "-s", device_serial,
+        "--output", str(KEYS_FOLDER)
+    ]
     
+    keydive_process = None
     try:
-        if not run_command(keydive_command, env=env):
+        # Uruchom keydive w tle, aby mógł nasłuchiwać zdarzeń DRM
+        logger.debug(f"Starting keydive process: {' '.join(keydive_command)}")
+        keydive_process = subprocess.Popen(
+            keydive_command, 
+            stdin=subprocess.DEVNULL,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding='utf-8',
+            errors='replace'
+        )
+
+        # Teraz, gdy keydive nasłuchuje, wykonaj akcję wybraną przez użytkownika wcześniej
+        should_open, url = user_action
+        if should_open and url:
+            _trigger_drm_on_device(device_serial, url)
+        else:
+            # Użytkownik wybrał opcję ręczną
+            logger.info(_("keydive_manual_hint"))
+
+        # Czekaj na zakończenie procesu keydive.
+        # To jest moment, w którym użytkownik powinien odtworzyć wideo.
+        # keydive zakończy się sam, gdy przechwyci klucze.
+        stdout, stderr = keydive_process.communicate()
+        
+        logger.debug(f"keydive STDOUT:\n{stdout}")
+        if stderr: logger.debug(f"keydive STDERR:\n{stderr}")
+
+        if keydive_process.returncode != 0:
+            logger.error(_("keydive_error"))
+            logger.error(f"keydive stderr:\n{stderr}")
             return False, None, None
+
     except KeyboardInterrupt:
+        if keydive_process: keydive_process.terminate()
         raise
 
     logger.info(_("verifying_files"))
@@ -515,9 +833,8 @@ def run_creation_phase(client_id_path: Path, priv_key_path: Path):
     
     python_in_venv = get_venv_path(VENV_CREATOR_PATH, "python")
     logger.info(_("installing_lib").format(library='pywidevine'))
-    # Usunięcie przypięcia wersji, aby zainstalować najnowszą wersję z narzędziem CLI
     install_command = [str(python_in_venv), "-m", "pip", "install", "--no-cache-dir", "pywidevine"]
-    result = run_command(install_command)
+    result = run_command(install_command, timeout=600)
     if not result:
         logger.error(_("pywidevine_install_fail")); return False
     
@@ -525,7 +842,6 @@ def run_creation_phase(client_id_path: Path, priv_key_path: Path):
     
     logger.info(_("creating_wvd_file").format(filename=FINAL_WVD_FILENAME.name))
     
-    # Użycie metody z narzędziem wiersza poleceń, tak jak w działającym skrypcie
     temp_output_folder = VENV_CREATOR_PATH / "temp_wvd_out"
     temp_output_folder.mkdir(exist_ok=True)
 
@@ -551,11 +867,33 @@ def run_creation_phase(client_id_path: Path, priv_key_path: Path):
         logger.error(_("phase2_failed")); return False
 
 # --- Główna funkcja i sprzątanie ---
-def cleanup(device_serial=None):
+def cleanup(device_serial=None, emulator_process=None): # ZMODYFIKOWANA
     logger.info(_("cleanup_header"))
+    
+    # START: NOWA CZĘŚĆ
+    if emulator_process:
+        logger.info(_("shutting_down_emulator"))
+        try:
+            if device_serial:
+                run_command([str(ADB_PATH), "-s", device_serial, "emu", "kill"], check=False)
+            emulator_process.terminate()
+            emulator_process.wait(timeout=30)
+            logger.info(_("emulator_shutdown_success"))
+        except (subprocess.TimeoutExpired, Exception) as e:
+            logger.warning(_("emulator_shutdown_fail"))
+            logger.debug(f"Emulator shutdown error: {e}")
+    # END: NOWA CZĘŚĆ
+
     if device_serial and ADB_PATH:
         logger.info(_("stopping_frida").format(serial=device_serial))
-        run_command([str(ADB_PATH), "-s", device_serial, "shell", "killall frida-server"], check=False)
+        # Zmieniono z `run_command` na bezpośrednie wywołanie `subprocess.run`,
+        # aby uniknąć problemów z I/O podczas zamykania skryptu, które mogły
+        # powodować błąd KeyboardInterrupt.
+        kill_cmd = [str(ADB_PATH), "-s", device_serial, "shell", "killall", "frida-server"]
+        try:
+            subprocess.run(kill_cmd, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+        except Exception as e:
+            logger.warning(f"Wystąpił błąd podczas próby zatrzymania serwera Frida, ale kontynuuję sprzątanie. Błąd: {e}")
         logger.info(_("frida_stop_sent"))
     for path in [VENV_EXTRACTOR_PATH, VENV_CREATOR_PATH, KEYS_FOLDER]:
         if path.exists():
@@ -566,7 +904,6 @@ def cleanup(device_serial=None):
                 logger.info(_("removed_success"))
             except OSError as e: logger.warning(_("remove_warning").format(folder=path.name, e=e))
 
-    # --- Log file logic ---
     log_file_path = Path(LOG_FILENAME)
     should_delete_log = g_script_successful or g_user_interrupted
 
@@ -597,7 +934,6 @@ def select_language():
             LANG = 'en'
             return
         else:
-            # Wyświetl w obu językach, ponieważ język nie został jeszcze poprawnie ustawiony
             print(MESSAGES["invalid_lang_choice"]["pl"] + " / " + MESSAGES["invalid_lang_choice"]["en"])
 
 def get_device_architecture(device_serial: str):
@@ -677,7 +1013,7 @@ def ensure_correct_frida_server(device_serial: str) -> bool:
             if answer == '' or answer.startswith(confirm_char):
                 return download_and_prepare_frida_server(arch)
     except (KeyboardInterrupt, EOFError):
-        pass # Pozwól na ciche przerwanie
+        pass
 
     logger.critical(_("frida_server_missing_error").format(filename=FRIDA_SERVER_FILENAME))
     return False
@@ -711,6 +1047,7 @@ def check_and_perform_cleanup():
 def main():
     global g_script_successful, g_user_interrupted
     device_serial = None
+    emulator_process = None # NOWOŚĆ
     try:
         select_language()
         setup_logging()
@@ -719,16 +1056,18 @@ def main():
         if not ADB_PATH or not ADB_PATH.is_file():
             logger.critical(_("adb_not_found")); sys.exit(1)
         
-        # START: Poprawiona logika
-        device_serial = select_device()
+        # Pytaj o akcję PRZED wyborem urządzenia
+        user_action_choice = prompt_for_video_action()
+        
+        # Teraz wybierz urządzenie
+        device_serial, emulator_process = select_or_launch_device()
         if not device_serial:
             sys.exit(1)
             
         if not ensure_correct_frida_server(device_serial):
             sys.exit(1)
-        # END: Poprawiona logika
 
-        extraction_success, client_id_path, priv_key_path = run_extraction_phase(device_serial)
+        extraction_success, client_id_path, priv_key_path = run_extraction_phase(device_serial, user_action_choice)
         if not extraction_success:
             logger.error(_("phase1_interrupted")); sys.exit(1)
         
@@ -743,12 +1082,11 @@ def main():
         g_user_interrupted = True
         logger.info(_("user_interrupt"))
     except Exception as e:
-        # Dodatkowy debug, aby zobaczyć pełny traceback w logu
         logger.debug("Caught exception in main loop", exc_info=True)
         logger.critical(_("critical_error").format(e=e))
     finally:
-        cleanup(device_serial)
-        # Tylko jeśli nie było przerwania przez użytkownika, zapytaj o Enter
+        # ZMODYFIKOWANA LOGIKA
+        cleanup(device_serial, emulator_process)
         if not g_user_interrupted:
             try:
                 input(_("press_enter_to_exit"))
